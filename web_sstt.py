@@ -1,27 +1,26 @@
 # coding=utf-8
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 
 import socket
-import selectors    #https://docs.python.org/3/library/selectors.html
+import selectors    # https://docs.python.org/3/library/selectors.html
 import select
 import types        # Para definir el tipo de datos data
 import argparse     # Leer parametros de ejecución
 import os           # Obtener ruta y extension
-from datetime import datetime, timedelta # Fechas de los mensajes HTTP
+from datetime import datetime, timedelta  # Fechas de los mensajes HTTP
 import time         # Timeout conexión
 import sys          # sys.exit
 import re           # Analizador sintáctico
 import logging      # Para imprimir logs
 
-
-
-BUFSIZE = 8192 # Tamaño máximo del buffer que se puede utilizar
-TIMEOUT_CONNECTION = 20 # Timout para la conexión persistente
+BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
+TIMEOUT_CONNECTION = 20     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
+
 # Extensiones admitidas (extension, name in HTTP)
-filetypes = {"gif":"image/gif", "jpg":"image/jpg", "jpeg":"image/jpeg", "png":"image/png", "htm":"text/htm", 
-             "html":"text/html", "css":"text/css", "js":"text/js"}
+filetypes = {"gif": "image/gif", "jpg": "image/jpg", "jpeg": "image/jpeg", "png": "image/png", "htm": "text/htm",
+             "html": "text/html", "css": "text/css", "js": "text/js"}
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO,
@@ -103,7 +102,6 @@ def main():
     """
 
     try:
-
         # Argument parser para obtener la ip y puerto de los parámetros de ejecución del programa. IP por defecto 0.0.0.0
         parser = argparse.ArgumentParser()
         parser.add_argument("-p", "--port", help="Puerto del servidor", type=int, required=True)
@@ -112,7 +110,6 @@ def main():
         parser.add_argument('--verbose', '-v', action='store_true', help='Incluir mensajes de depuración en la salida')
         args = parser.parse_args()
 
-
         if args.verbose:
             logger.setLevel(logging.DEBUG)
 
@@ -120,24 +117,41 @@ def main():
 
         logger.info("Serving files from {}".format(args.webroot))
 
-        """ Funcionalidad a realizar
-        * Crea un socket TCP (SOCK_STREAM)
-        * Permite reusar la misma dirección previamente vinculada a otro proceso. Debe ir antes de sock.bind
-        * Vinculamos el socket a una IP y puerto elegidos
+        # Crea un socket TCP(SOCK_STREAM)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # Permite reusar la misma dirección previamente vinculada a otro proceso. Debe ir antes de sock.bind
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Vinculamos el socket a una IP y puerto elegidos
+            s.bind((args.host, args.port))
+            s.listen(MAX_ACCESOS)
+            # Escucha conexiones entrantes
+            print('Listening on {}, {}', args.host, args.port)
 
-        * Escucha conexiones entrantes
+            conn, client_addr = s.accept()
+            '''
+            # Bucle infinito para mantener el servidor activo indefinidamente
+            while True:
+                # - Aceptamos la conexión
+                conn, client_addr = s.accept()
+                # - Creamos un proceso hijo
+                pid = os.fork()
+                if pid == 0:
+                    # Hijo
+                    # - Si es el proceso hijo se cierra el socket del padre y
+                    s.close()
+                    # procesar la petición con process_web_request()
+                    print("Procesar petición")
+                else:
+                    # Padre
+                    # - Si es el proceso padre cerrar el socket que gestiona el hijo.
+                    conn.close()
+            '''
 
-        * Bucle infinito para mantener el servidor activo indefinidamente
-            - Aceptamos la conexión
+        print("Done!")
 
-            - Creamos un proceso hijo
-
-            - Si es el proceso hijo se cierra el socket del padre y procesar la petición con process_web_request()
-
-            - Si es el proceso padre cerrar el socket que gestiona el hijo.
-        """
     except KeyboardInterrupt:
         True
 
-if __name__== "__main__":
+
+if __name__ == "__main__":
     main()
