@@ -17,7 +17,8 @@ BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 20     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
-HTTP_GET_REGEX_TXT = "(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\\r\\n\n(.+?:.+?\\r\\n\n)*\\r\\n"
+# HTTP_GET_REGEX_TXT = "(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\\r\\n(.+?:.+?\\r\\n)*\\r\\n"
+HTTP_GET_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n"
 HTTP_GET_REGEX = re.compile(HTTP_GET_REGEX_TXT)
 
 
@@ -74,10 +75,10 @@ def process_web_request(cs, webroot):
             # Se comprueba si hay que cerrar la conexión por exceder TIMEOUT_CONNECTION segundos
             # sin recibir ningún mensaje o hay datos. Se utiliza select.select
             
-            [r,w,x] = select.select(cs, TIMEOUT_CONNECTION)
+            [r,w,x] = select.select([cs], [], [], TIMEOUT_CONNECTION)
     
 
-            if r.empty() and w.emtpy() and x.empty():
+            if len(r) == 0 and len(w) == 0 and len(x) == 0:
                 # Si es por timeout, se cierra el socket tras el período de persistencia.
                 # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
                 cs.close()
@@ -87,24 +88,25 @@ def process_web_request(cs, webroot):
                 # Si no es por timeout y hay datos en el socket cs.
 
                 # Leer los datos con recv.
-                recv_data = cs.recv(BUFSIZE)
+                recv_data = cs.recv(BUFSIZE).decode()
 
                 # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
-                data_match = HTTP_GET_REGEX.match(str(recv_data))
+                data_match = HTTP_GET_REGEX.search(recv_data)
                 if data_match:
-
                     method = data_match["METHOD"]
                     resource = data_match["RESOURCE"]
                     http_version = data_match["HTTPVER"]
 
                     # Mapa de cabeceras
                     cabeceras = {}
-                    for line in recv_data.splitlines()[1:]:
+                    for line in recv_data.split(r"\r\n")[1:]:
                         split = line.split(":", 1)
-                        cabeceras[split[0]] = split[1].replace("\\r\\n", "")
+                        if len(split) != 0:
+                            print(split)
+                            cabeceras[split[0]] = split[1].replace("\\r\\n", "")
                     
                     # Devuelve una lista con los atributos de las cabeceras.
-
+                    
                     # Comprobar si la versión de HTTP es 1.1
                     if http_version != "1.1":
                         return
@@ -133,7 +135,8 @@ def process_web_request(cs, webroot):
                         # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
                         if not os.path.isfile(resource_path):
                             print("ERROR")  #TODO
-                        
+                else:
+                    print("Http formateado mal")
                         
 
                         
