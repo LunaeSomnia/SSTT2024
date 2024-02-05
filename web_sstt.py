@@ -17,6 +17,10 @@ BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 20     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
+HTTP_GET_REGEX_TXT = "(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\\r\\n\n(.+?:.+?\\r\\n\n)*\\r\\n"
+HTTP_GET_REGEX = re.compile(HTTP_GET_REGEX_TXT)
+
+
 
 # Extensiones admitidas (extension, name in HTTP)
 filetypes = {"gif": "image/gif", "jpg": "image/jpg", "jpeg": "image/jpeg", "png": "image/png", "htm": "text/htm",
@@ -63,22 +67,83 @@ def process_cookies(headers,  cs):
 def process_web_request(cs, webroot):
     """ Procesamiento principal de los mensajes recibidos.
         Típicamente se seguirá un procedimiento similar al siguiente (aunque el alumno puede modificarlo si lo desea)
+    """
 
-        * Bucle para esperar hasta que lleguen datos en la red a través del socket cs con select()
+    # * Bucle para esperar hasta que lleguen datos en la red a través del socket cs con select()
+    while True: 
+            # Se comprueba si hay que cerrar la conexión por exceder TIMEOUT_CONNECTION segundos
+            # sin recibir ningún mensaje o hay datos. Se utiliza select.select
+            
+            [r,w,x] = select.select(cs, TIMEOUT_CONNECTION)
+    
 
-            * Se comprueba si hay que cerrar la conexión por exceder TIMEOUT_CONNECTION segundos
-              sin recibir ningún mensaje o hay datos. Se utiliza select.select
+            if r.empty() and w.emtpy() and x.empty():
+                # Si es por timeout, se cierra el socket tras el período de persistencia.
+                # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
+                cs.close()
+                #Falta ERROR
 
-            * Si no es por timeout y hay datos en el socket cs.
-                * Leer los datos con recv.
-                * Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
-                    * Devuelve una lista con los atributos de las cabeceras.
-                    * Comprobar si la versión de HTTP es 1.1
-                    * Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
-                    * Leer URL y eliminar parámetros si los hubiera
-                    * Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
-                    * Construir la ruta absoluta del recurso (webroot + recurso solicitado)
-                    * Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+            else:
+                # Si no es por timeout y hay datos en el socket cs.
+
+                # Leer los datos con recv.
+                recv_data = cs.recv(BUFSIZE)
+
+                # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
+                data_match = HTTP_GET_REGEX.match(str(recv_data))
+                if data_match:
+
+                    method = data_match["METHOD"]
+                    resource = data_match["RESOURCE"]
+                    http_version = data_match["HTTPVER"]
+
+                    # Mapa de cabeceras
+                    cabeceras = {}
+                    for line in recv_data.splitlines()[1:]:
+                        split = line.split(":", 1)
+                        cabeceras[split[0]] = split[1].replace("\\r\\n", "")
+                    
+                    # Devuelve una lista con los atributos de las cabeceras.
+
+                    # Comprobar si la versión de HTTP es 1.1
+                    if http_version != "1.1":
+                        return
+
+                    # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
+                    if method != "GET":
+                        return
+                    elif method != "POST":
+                        return
+                    else:
+                        print("ERROR")
+
+                    # Leer URL y eliminar parámetros si los hubiera
+                    if data_match["HOST"]:
+                        return
+                    
+                    # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
+                    if resource:
+                        resource_path = webroot
+                        if resource == "/":
+                            resource_path += "/index.html"
+                        else:
+                            # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
+                            resource_path += resource
+                        
+                        # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+                        if not os.path.isfile(resource_path):
+                            print("ERROR")  #TODO
+                        
+                        
+
+                        
+                    
+
+                        
+
+            """
+
+                    
                     * Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
                       el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                       Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
@@ -92,8 +157,6 @@ def process_web_request(cs, webroot):
                         * Se lee el fichero en bloques de BUFSIZE bytes (8KB)
                         * Cuando ya no hay más información para leer, se corta el bucle
 
-            * Si es por timeout, se cierra el socket tras el período de persistencia.
-                * NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
     """
 
 
@@ -127,25 +190,24 @@ def main():
             # Escucha conexiones entrantes
             print('Listening on {}, {}', args.host, args.port)
 
-            conn, client_addr = s.accept()
-            '''
             # Bucle infinito para mantener el servidor activo indefinidamente
             while True:
+                
                 # - Aceptamos la conexión
                 conn, client_addr = s.accept()
+
                 # - Creamos un proceso hijo
                 pid = os.fork()
                 if pid == 0:
-                    # Hijo
-                    # - Si es el proceso hijo se cierra el socket del padre y
+                    # Hijo - Si es el proceso hijo se cierra el socket del padre y
                     s.close()
                     # procesar la petición con process_web_request()
-                    print("Procesar petición")
+                    process_web_request(conn, os.getcwd())
+                    
+                    exit()
                 else:
-                    # Padre
-                    # - Si es el proceso padre cerrar el socket que gestiona el hijo.
+                    # Padre - Si es el proceso padre cerrar el socket que gestiona el hijo.
                     conn.close()
-            '''
 
         print("Done!")
 
