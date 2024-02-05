@@ -102,7 +102,6 @@ def process_web_request(cs, webroot):
                     for line in recv_data.split(r"\r\n")[1:]:
                         split = line.split(":", 1)
                         if len(split) != 0:
-                            print(split)
                             cabeceras[split[0]] = split[1].replace("\\r\\n", "")
                     
                     # Devuelve una lista con los atributos de las cabeceras.
