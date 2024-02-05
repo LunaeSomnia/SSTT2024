@@ -106,15 +106,18 @@ def process_web_request(cs, webroot):
                             cabeceras[split[0]] = split[1].replace("\\r\\n", "")
                     
                     # Devuelve una lista con los atributos de las cabeceras.
-                    
+
                     # Comprobar si la versión de HTTP es 1.1
                     if http_version != "1.1":
+                        print("DEBUG: VERSION 1.1")
                         return
 
                     # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
                     if method != "GET":
+                        print("DEBUG: GET")
                         return
                     elif method != "POST":
+                        print("DEBUG: POST")
                         return
                     else:
                         print("ERROR")
@@ -127,6 +130,7 @@ def process_web_request(cs, webroot):
                     if resource:
                         resource_path = webroot
                         if resource == "/":
+                            print("DEBUG: Reparsing '/' to '/index.html'")
                             resource_path += "/index.html"
                         else:
                             # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
