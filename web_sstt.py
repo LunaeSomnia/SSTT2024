@@ -17,7 +17,6 @@ BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 20     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
-# HTTP_GET_REGEX_TXT = "(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\\r\\n(.+?:.+?\\r\\n)*\\r\\n"
 HTTP_GET_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n"
 HTTP_GET_REGEX = re.compile(HTTP_GET_REGEX_TXT)
 
@@ -38,15 +37,18 @@ def enviar_mensaje(cs, data):
     """ Esta función envía datos (data) a través del socket cs
         Devuelve el número de bytes enviados.
     """
-    pass
+
+    sent = cs.send(data)
+    print("DEBUG: Sent " + sent + " bytes")
 
 
 def recibir_mensaje(cs):
     """ Esta función recibe datos a través del socket cs
         Leemos la información que nos llega. recv() devuelve un string con los datos.
     """
-    pass
 
+    data_recv = cx.recv(BUFSIZE)
+    print("DEBUG: Received " + len(data_recv) + " bytes")
 
 def cerrar_conexion(cs):
     """ Esta función cierra una conexión activa.
@@ -56,12 +58,17 @@ def cerrar_conexion(cs):
 
 def process_cookies(headers,  cs):
     """ Esta función procesa la cookie cookie_counter
-        1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
-        2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
-        3. Si no se encuentra cookie_counter , se devuelve 1
-        4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
-        5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
     """
+    # 1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
+    cookie = headers['cookie']
+    # 2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
+    
+    # 3. Si no se encuentra cookie_counter , se devuelve 1
+
+    # 4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
+
+    # 5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
+    
     pass
 
 
@@ -98,12 +105,16 @@ def process_web_request(cs, webroot):
                     http_version = data_match["HTTPVER"]
 
                     # Mapa de cabeceras
-                    cabeceras = {}
+                    headers = {}
                     for line in recv_data.split(r"\r\n")[1:]:
                         split = line.split(":", 1)
                         if len(split) != 0:
-                            cabeceras[split[0]] = split[1].replace("\\r\\n", "")
-                    
+                            headers[split[0]] = split[1]
+
+
+                    for header in headers:
+                        print("header '${header}': ${headers[header]}")
+
                     # Devuelve una lista con los atributos de las cabeceras.
 
                     # Comprobar si la versión de HTTP es 1.1
@@ -126,39 +137,45 @@ def process_web_request(cs, webroot):
                         return
                     
                     # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
-                    if resource:
-                        resource_path = webroot
-                        if resource == "/":
-                            print("DEBUG: Reparsing '/' to '/index.html'")
-                            resource_path += "/index.html"
-                        else:
-                            # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
-                            resource_path += resource
-                        
-                        # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
-                        if not os.path.isfile(resource_path):
-                            print("ERROR")  #TODO
+                    resource_path = webroot
+                    if resource == "/":
+                        print("DEBUG: Reparsing '/' to '/index.html'")
+                        resource_path += "/index.html"
+                    else:
+                        # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
+                        resource_path += resource
+                    
+                    # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+                    if not os.path.isfile(resource_path):
+                        print("ERROR")  #TODO
+                    
+                    # Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
+                    # el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
+                    # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
+
+                    if headers['cookie']:
+                        process_cookies(headers, cs)
+                    
+                    # Obtener el tamaño del recurso en bytes.
+                    
+                    # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+
+
                 else:
                     print("Http formateado mal")
                         
 
-                        
                     
-
-                        
+                    # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
+                    # las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
+                    # Content-Length y Content-Type.
 
             """
 
                     
-                    * Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
-                      el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
-                      Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
-                    * Obtener el tamaño del recurso en bytes.
-                    * Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
-                    * Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
-                      las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
-                      Content-Length y Content-Type.
+
                     * Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
+                    
                     * Se abre el fichero en modo lectura y modo binario
                         * Se lee el fichero en bloques de BUFSIZE bytes (8KB)
                         * Cuando ya no hay más información para leer, se corta el bucle
