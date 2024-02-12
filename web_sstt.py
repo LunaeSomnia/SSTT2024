@@ -59,17 +59,30 @@ def cerrar_conexion(cs):
 def process_cookies(headers,  cs):
     """ Esta función procesa la cookie cookie_counter
     """
+    cookies = {}
     # 1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
-    cookie = headers['cookie']
+    cookies_str = headers['Cookie']
+
+    if ',' in cookies_str:
+        for cookie in cookies_str.split(','):
+            c = cookie.split('=')
+            cookies[c[0]] = c[1]
+    elif cookies_str != '':
+        c = cookie.split('=')
+        cookies[c[0]] = c[1]
+
+        
     # 2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
-    
-    # 3. Si no se encuentra cookie_counter , se devuelve 1
+    if "cookie_counter" in cookies:
+        cookie_counter = cookies["cookies_counter"]
+        # 4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
+        # 5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
+        return MAX_ACCESOS if cookie_counter == MAX_ACCESOS else cookie_counter+1
+    else:
+        # 3. Si no se encuentra cookie_counter , se devuelve 1
+        return 1
 
-    # 4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
 
-    # 5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
-    
-    pass
 
 
 def process_web_request(cs, webroot):
