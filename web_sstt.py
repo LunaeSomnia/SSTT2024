@@ -144,14 +144,13 @@ def process_web_request(cs, webroot):
                         print("ERROR")  #TODO
                     
                     # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
-                    # for header in headers:
-                    #     print("header '${header}': ${headers[header]}")
+                    for header in headers:
+                        print(header + " -> " + headers[header])
 
                     # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                     # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
 
-                    print(headers)
-                    if headers['cookie']:
+                    if 'cookie' in headers:
                         process_cookies(headers, cs)
                     
                     # Obtener el tamaño del recurso en bytes.
