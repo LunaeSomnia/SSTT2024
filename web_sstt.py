@@ -32,14 +32,19 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger()
 
+# Configuracion de respuestas HTTP
+server = "Custom Server"
+connection = "Keep-Alive"
+content_type = "text/html; charset=ISO-8859-1"
+
 
 def enviar_mensaje(cs, data):
     """ Esta función envía datos (data) a través del socket cs
         Devuelve el número de bytes enviados.
     """
 
-    sent = cs.send(data)
-    print("DEBUG: Sent " + sent + " bytes")
+    sent = cs.send(bytes(data, encoding='latin-1'))
+    print("DEBUG: Sent " + str(sent) + " bytes")
 
 
 def recibir_mensaje(cs):
@@ -163,34 +168,45 @@ def process_web_request(cs, webroot):
                     # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                     # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
 
+                    cookie_counter = 1
                     if 'cookie' in headers:
-                        process_cookies(headers, cs)
+                        cookie_counter = process_cookies(headers, cs)
                     
                     # Obtener el tamaño del recurso en bytes.
                     
                     # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
 
-
-                else:
-                    print("Http formateado mal")
-                        
-
-                    
                     # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
                     # las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
                     # Content-Length y Content-Type.
+                    date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
-            """
+                    respuesta = ""
+                    respuesta += r"HTTP/"+http_version+r" 200 OK\r\n"
+                    respuesta += r"Date: "+date+r"\r\n"
+                    respuesta += r"Server: "+server+r"\r\n"
+                    respuesta += r"Connection: "+connection+r"\r\n"
+                    respuesta += r"Set-Cookie: cookie-counter="+str(cookie_counter)+r"\r\n"
+                    respuesta += r"Content-Length: 0"+r"\r\n"
+                    respuesta += r"Content-Type: "+content_type+r"\r\n"
+                    respuesta += r"\r\n"
 
-                    
+                    print(respuesta)
 
+                    enviar_mensaje(cs, respuesta)
+
+                    """
                     * Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
                     
                     * Se abre el fichero en modo lectura y modo binario
                         * Se lee el fichero en bloques de BUFSIZE bytes (8KB)
                         * Cuando ya no hay más información para leer, se corta el bucle
+                    """
+                else:
+                    print("Http formateado mal")
+                    return
 
-    """
+
 
 
 def main():
