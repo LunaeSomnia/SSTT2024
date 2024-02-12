@@ -106,14 +106,10 @@ def process_web_request(cs, webroot):
 
                     # Mapa de cabeceras
                     headers = {}
-                    for line in recv_data.split(r"\r\n")[1:]:
-                        split = line.split(":", 1)
-                        if len(split) != 0:
+                    for line in recv_data.splitlines()[1:]:
+                        if line != "":
+                            split = line.split(":", 1)
                             headers[split[0]] = split[1]
-
-
-                    for header in headers:
-                        print("header '${header}': ${headers[header]}")
 
                     # Devuelve una lista con los atributos de las cabeceras.
 
@@ -123,18 +119,16 @@ def process_web_request(cs, webroot):
                         return
 
                     # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
-                    if method != "GET":
+                    if method == "GET":
                         print("DEBUG: GET")
-                        return
-                    elif method != "POST":
+                    elif method == "POST":
                         print("DEBUG: POST")
-                        return
                     else:
                         print("ERROR")
 
                     # Leer URL y eliminar parámetros si los hubiera
-                    if data_match["HOST"]:
-                        return
+                    # if data_match["HOST"]:
+                    #     return
                     
                     # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
                     resource_path = webroot
@@ -149,10 +143,14 @@ def process_web_request(cs, webroot):
                     if not os.path.isfile(resource_path):
                         print("ERROR")  #TODO
                     
-                    # Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
-                    # el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
+                    # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
+                    # for header in headers:
+                    #     print("header '${header}': ${headers[header]}")
+
+                    # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                     # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
 
+                    print(headers)
                     if headers['cookie']:
                         process_cookies(headers, cs)
                     
