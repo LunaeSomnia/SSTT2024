@@ -66,24 +66,26 @@ def process_cookies(headers,  cs):
     """ Esta función procesa la cookie cookie_counter
     """
     cookies = {}
-    # 1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
-    cookies_str = headers['Cookie']
 
-    if ',' in cookies_str:
-        for cookie in cookies_str.split(','):
-            c = cookie.split('=')
+    # 1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
+    if 'Cookie' in headers:
+        cookies_str = headers['Cookie'].strip()
+
+        if ',' in cookies_str:
+            for cookie in cookies_str.split(','):
+                c = cookie.split('=')
+                cookies[c[0]] = c[1]
+        elif cookies_str != '':
+            c = cookies_str.split('=')
             cookies[c[0]] = c[1]
-    elif cookies_str != '':
-        c = cookie.split('=')
-        cookies[c[0]] = c[1]
 
         
     # 2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
     if "cookie_counter" in cookies:
-        cookie_counter = cookies["cookies_counter"]
+        cookie_counter = int(cookies["cookie_counter"])
         # 4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
         # 5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
-        return MAX_ACCESOS if cookie_counter == MAX_ACCESOS else cookie_counter+1
+        return MAX_ACCESOS if cookie_counter == MAX_ACCESOS else cookie_counter + 1 
     else:
         # 3. Si no se encuentra cookie_counter , se devuelve 1
         return 1
@@ -107,7 +109,7 @@ def process_web_request(cs, webroot):
             if len(r) == 0 and len(w) == 0 and len(x) == 0:
                 # Si es por timeout, se cierra el socket tras el período de persistencia.
                 # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
-                cerrar_conexion()
+                cerrar_conexion(cs)
                 #Falta ERROR
 
             else:
@@ -169,9 +171,8 @@ def process_web_request(cs, webroot):
                     # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                     # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
 
-                    cookie_counter = 1
-                    if 'cookie' in headers:
-                        cookie_counter = process_cookies(headers, cs)
+                    cookie_counter = process_cookies(headers, cs)
+                    print("cookie_counter = " + str(cookie_counter))
                     
                     # Obtener el tamaño del recurso en bytes.
                     
@@ -182,33 +183,36 @@ def process_web_request(cs, webroot):
                     # Content-Length y Content-Type.
                     date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
-                    # Leer el archivo pedido en bytes
-                    file = open(resource_path)
-                    file_bytes = bytes(file)
-                    file_bytes_len = len(file_bytes)
+
+                    
+
+                    # Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
+                    # Se abre el fichero en modo lectura y modo binario
+                    file = open(resource_path, "rb")
+
+                    file_string = ""
+                    file_bytes_len = 0
+                    while True:
+                        read_bytes = file.read(BUFSIZE)
+                        if not read_bytes:
+                            # Cuando ya no hay más información para leer, se corta el bucle
+                            break     
+                        
+                        file_string += str(read_bytes, encoding='latin-1')
+                        file_bytes_len += len(read_bytes)
 
                     respuesta = ""
-                    respuesta += r"HTTP/"+http_version+r" 200 OK\r\n"
-                    respuesta += r"Date: "+date+r"\r\n"
-                    respuesta += r"Server: "+server+r"\r\n"
-                    respuesta += r"Connection: "+connection+r"\r\n"
-                    respuesta += r"Set-Cookie: cookie-counter="+str(cookie_counter)+r"\r\n"
-                    respuesta += r"Content-Length: "+file_bytes_len+r"\r\n"
-                    respuesta += r"Content-Type: "+content_type+r"\r\n"
-                    respuesta += r"\r\n"
-                    respuesta += str(file_bytes)
-
-                    print(respuesta)
+                    respuesta += "HTTP/"+http_version+" 200 OK\r\n"
+                    respuesta += "Date: "+date+"\r\n"
+                    respuesta += "Server: "+server+"\r\n"
+                    respuesta += "Connection: "+connection+"\r\n"
+                    respuesta += "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
+                    respuesta += "Content-Length: "+str(file_bytes_len)+"\r\n"
+                    respuesta += "Content-Type: "+content_type+"\r\n"
+                    respuesta += "\r\n"
+                    respuesta += file_string
 
                     enviar_mensaje(cs, respuesta)
-
-                    """
-                    * Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
-                    
-                    * Se abre el fichero en modo lectura y modo binario
-                        * Se lee el fichero en bloques de BUFSIZE bytes (8KB)
-                        * Cuando ya no hay más información para leer, se corta el bucle
-                    """
                 else:
                     print("Http formateado mal")
                     return
