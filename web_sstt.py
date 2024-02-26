@@ -182,15 +182,21 @@ def process_web_request(cs, webroot):
                     # Content-Length y Content-Type.
                     date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
+                    # Leer el archivo pedido en bytes
+                    file = open(resource_path)
+                    file_bytes = bytes(file)
+                    file_bytes_len = len(file_bytes)
+
                     respuesta = ""
                     respuesta += r"HTTP/"+http_version+r" 200 OK\r\n"
                     respuesta += r"Date: "+date+r"\r\n"
                     respuesta += r"Server: "+server+r"\r\n"
                     respuesta += r"Connection: "+connection+r"\r\n"
                     respuesta += r"Set-Cookie: cookie-counter="+str(cookie_counter)+r"\r\n"
-                    respuesta += r"Content-Length: 0"+r"\r\n"
+                    respuesta += r"Content-Length: "+file_bytes_len+r"\r\n"
                     respuesta += r"Content-Type: "+content_type+r"\r\n"
                     respuesta += r"\r\n"
+                    respuesta += str(file_bytes)
 
                     print(respuesta)
 
