@@ -52,13 +52,14 @@ def recibir_mensaje(cs):
         Leemos la información que nos llega. recv() devuelve un string con los datos.
     """
 
-    data_recv = cx.recv(BUFSIZE)
+    data_recv = cs.recv(BUFSIZE)
     print("DEBUG: Received " + len(data_recv) + " bytes")
 
 def cerrar_conexion(cs):
     """ Esta función cierra una conexión activa.
     """
-    pass
+
+    cs.close()
 
 
 def process_cookies(headers,  cs):
@@ -106,7 +107,7 @@ def process_web_request(cs, webroot):
             if len(r) == 0 and len(w) == 0 and len(x) == 0:
                 # Si es por timeout, se cierra el socket tras el período de persistencia.
                 # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
-                cs.close()
+                cerrar_conexion()
                 #Falta ERROR
 
             else:
