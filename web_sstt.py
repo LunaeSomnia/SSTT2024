@@ -23,11 +23,6 @@ HTTP_GET_REGEX = re.compile(HTTP_GET_REGEX_TXT)
 REMOVE_PARAMS_TXT = r"\?.+?$"
 REMOVE_PARAMS = re.compile(REMOVE_PARAMS_TXT)
 
-HTTP_405_CONTENT = "<html><body><h1>405 Method Not Allowed</h1></body></html>"
-HTTP_404_CONTENT = "<html><body><h1>404 Not Found</h1></body></html>"
-HTTP_403_CONTENT = "<html><body><h1>403 Forbidden</h1></body></html>"
-
-
 # Extensiones admitidas (extension, name in HTTP)
 filetypes = {"gif": "image/gif", "jpg": "image/jpg", "jpeg": "image/jpeg", "png": "image/png", "htm": "text/htm",
              "html": "text/html", "css": "text/css", "js": "text/js"}
@@ -41,7 +36,6 @@ logger = logging.getLogger()
 # Configuracion de respuestas HTTP
 server = "Custom Server"
 connection = "Keep-Alive"
-
 
 def enviar_mensaje(cs, data):
     """ Esta función envía datos (data) a través del socket cs
@@ -107,6 +101,22 @@ def format_message(http_version, date, status_code, status_msg, additional_heade
     respuesta += "\r\n"
     return respuesta
 
+def format_error_message(http_version, date, status_code, status_msg):
+    content = ""
+    content += "<html><body><h1>"
+    content += status_code + " " + status_msg
+    content += "</h1></body></html>"
+
+    respuesta = ""
+    respuesta += "HTTP/"+http_version+" "+ status_code+" "+ status_msg+"\r\n"
+    respuesta += "Date: "+date+"\r\n"
+    respuesta += "Server: "+server+"\r\n"
+    respuesta += "Connection: "+connection+"\r\n"
+    respuesta += "Content-Length: "+str(len(content))+"\r\n"
+    respuesta += "\r\n"
+    respuesta += content
+
+    return respuesta
 
 def process_web_request(cs, webroot):
     """ Procesamiento principal de los mensajes recibidos.
@@ -153,8 +163,7 @@ def process_web_request(cs, webroot):
 
                 # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
                 if method != "GET" and method != "POST":
-                    respuesta = format_message(http_version, date, "405", "Method Not Allowed", [], len(HTTP_405_CONTENT))
-                    respuesta += HTTP_405_CONTENT;
+                    respuesta = format_error_message(http_version, date, "405", "Method Not Allowed")
                     enviar_mensaje(cs, respuesta)
                     break
 
@@ -171,8 +180,7 @@ def process_web_request(cs, webroot):
                 
                 # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
                 if not os.path.isfile(resource_path):
-                    respuesta = format_message(http_version, date, "404", "Not found", [], len(HTTP_404_CONTENT))
-                    respuesta += HTTP_404_CONTENT;
+                    respuesta = format_error_message(http_version, date, "404", "Not Found")
                     enviar_mensaje(cs, respuesta)
                     break
                 
@@ -186,8 +194,7 @@ def process_web_request(cs, webroot):
                 if resource_path == webroot + "/index.html":
                     cookie_counter = process_cookies(headers, cs)
                     if cookie_counter == MAX_ACCESOS:
-                        respuesta = format_message(http_version, date, "403", "Forbidden", [], len(HTTP_403_CONTENT))
-                        respuesta += HTTP_403_CONTENT;
+                        respuesta = format_error_message(http_version, date, "403", "Forbidden")
                         enviar_mensaje(cs, respuesta)
                         break
                     set_cookie_counter_header = "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
@@ -200,11 +207,10 @@ def process_web_request(cs, webroot):
 
                 # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
                 file_name, file_extension = os.path.splitext(resource_path)
+                file_extension = file_extension.replace(".", "")
                 content_type = ""
-                if file_extension == "html":
-                    content_type = "text/html; charset=ISO-8859-1"
-                elif file_extension == "jpg":
-                    content_type == "image/jpeg"
+                content_type += filetypes[file_extension]
+                content_type += "; charset=ISO-8859-1"
                 content_type_header = "Content-Type: "+content_type+"\r\n";
 
                 # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
@@ -229,7 +235,7 @@ def process_web_request(cs, webroot):
 
                 enviar_mensaje(cs, respuesta)
             else:
-                print("Http formateado mal")
+                respuesta = format_error_message(http_version, date, "400", "Bad Request")
                 return
 
 
