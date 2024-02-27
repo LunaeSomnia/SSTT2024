@@ -133,110 +133,109 @@ def process_web_request(cs, webroot):
             # Si es por timeout, se cierra el socket tras el período de persistencia.
             # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
             cerrar_conexion(cs)
-            # Falta ERROR
+            # TODO: Falta ERROR
             break
 
+        # Si no es por timeout y hay datos en el socket cs.
+        # Leer los datos con recv.
+        recv_data = cs.recv(BUFSIZE).decode()
+
+        # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
+        data_match = HTTP_GET_REGEX.search(recv_data)
+        if not data_match:
+            respuesta = format_error_message(http_version, date, "400", "Bad Request")
+            return
+
+        method = data_match["METHOD"]
+        resource = data_match["RESOURCE"]
+        http_version = data_match["HTTPVER"]
+        date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+        # Mapa de cabeceras
+        # Devuelve una lista con los atributos de las cabeceras.
+        headers = {}
+        for line in recv_data.splitlines()[1:]:
+            if line != "":
+                split = line.split(":", 1)
+                headers[split[0]] = split[1]
+
+        # Comprobar si la versión de HTTP es 1.1
+        if http_version != "1.1":
+            break
+
+        # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
+        if method != "GET" and method != "POST":
+            respuesta = format_error_message(http_version, date, "405", "Method Not Allowed")
+            enviar_mensaje(cs, respuesta)
+            break
+
+        # Leer URL y eliminar parámetros si los hubiera
+        resource = REMOVE_PARAMS.sub("", resource)
+        
+        # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
+        resource_path = webroot
+        if resource == "/":
+            resource_path += "/index.html"
         else:
-            # Si no es por timeout y hay datos en el socket cs.
-            # Leer los datos con recv.
-            recv_data = cs.recv(BUFSIZE).decode()
+            # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
+            resource_path += resource
+        
+        # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+        if not os.path.isfile(resource_path):
+            respuesta = format_error_message(http_version, date, "404", "Not Found")
+            enviar_mensaje(cs, respuesta)
+            break
+        
+        # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
+        for header in headers:
+            print("\t" + header + ": " + headers[header])
 
-            # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
-            data_match = HTTP_GET_REGEX.search(recv_data)
-            if data_match:
-                method = data_match["METHOD"]
-                resource = data_match["RESOURCE"]
-                http_version = data_match["HTTPVER"]
-                date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-
-                # Mapa de cabeceras
-                # Devuelve una lista con los atributos de las cabeceras.
-                headers = {}
-                for line in recv_data.splitlines()[1:]:
-                    if line != "":
-                        split = line.split(":", 1)
-                        headers[split[0]] = split[1]
-
-                # Comprobar si la versión de HTTP es 1.1
-                if http_version != "1.1":
-                    break
-
-                # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
-                if method != "GET" and method != "POST":
-                    respuesta = format_error_message(http_version, date, "405", "Method Not Allowed")
-                    enviar_mensaje(cs, respuesta)
-                    break
-
-                # Leer URL y eliminar parámetros si los hubiera
-                resource = REMOVE_PARAMS.sub("", resource)
-                
-                # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
-                resource_path = webroot
-                if resource == "/":
-                    resource_path += "/index.html"
-                else:
-                    # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
-                    resource_path += resource
-                
-                # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
-                if not os.path.isfile(resource_path):
-                    respuesta = format_error_message(http_version, date, "404", "Not Found")
-                    enviar_mensaje(cs, respuesta)
-                    break
-                
-                # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
-                for header in headers:
-                    print("\t" + header + ": " + headers[header])
-
-                # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
-                # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
-                set_cookie_counter_header = ""
-                if resource_path == webroot + "/index.html":
-                    cookie_counter = process_cookies(headers, cs)
-                    if cookie_counter == MAX_ACCESOS:
-                        respuesta = format_error_message(http_version, date, "403", "Forbidden")
-                        enviar_mensaje(cs, respuesta)
-                        break
-                    set_cookie_counter_header = "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
-                else:
-                    set_cookie_counter_header = "Set-Cookie: " + headers["Cookie"]+"\r\n"
-                
-                # Obtener el tamaño del recurso en bytes.
-                file_bytes_len = os.stat(resource_path).st_size
-
-
-                # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
-                file_name, file_extension = os.path.splitext(resource_path)
-                file_extension = file_extension.replace(".", "")
-                content_type = ""
-                content_type += filetypes[file_extension]
-                content_type += "; charset=ISO-8859-1"
-                content_type_header = "Content-Type: "+content_type+"\r\n";
-
-                # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
-                # las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
-                # Content-Length y Content-Type.
-                respuesta = format_message(http_version, date, "200", "OK", [set_cookie_counter_header, content_type_header], file_bytes_len)
-
-                # Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
-                # Se abre el fichero en modo lectura y modo binario
-                file = open(resource_path, "rb")
-
-                file_string = ""
-                while True:
-                    read_bytes = file.read(BUFSIZE)
-                    if not read_bytes:
-                        # Cuando ya no hay más información para leer, se corta el bucle
-                        break     
-                    
-                    file_string += str(read_bytes, encoding='latin-1')
-
-                respuesta += file_string
-
+        # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
+        # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
+        set_cookie_counter_header = ""
+        if resource_path == webroot + "/index.html":
+            cookie_counter = process_cookies(headers, cs)
+            if cookie_counter == MAX_ACCESOS:
+                respuesta = format_error_message(http_version, date, "403", "Forbidden")
                 enviar_mensaje(cs, respuesta)
-            else:
-                respuesta = format_error_message(http_version, date, "400", "Bad Request")
-                return
+                break
+            set_cookie_counter_header = "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
+        else:
+            set_cookie_counter_header = "Set-Cookie: " + headers["Cookie"]+"\r\n"
+        
+        # Obtener el tamaño del recurso en bytes.
+        file_bytes_len = os.stat(resource_path).st_size
+
+
+        # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+        file_name, file_extension = os.path.splitext(resource_path)
+        file_extension = file_extension.replace(".", "")
+        content_type = ""
+        content_type += filetypes[file_extension]
+        content_type += "; charset=ISO-8859-1"
+        content_type_header = "Content-Type: "+content_type+"\r\n";
+
+        # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
+        # las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
+        # Content-Length y Content-Type.
+        respuesta = format_message(http_version, date, "200", "OK", [set_cookie_counter_header, content_type_header], file_bytes_len)
+
+        # Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
+        # Se abre el fichero en modo lectura y modo binario
+        file = open(resource_path, "rb")
+
+        file_string = ""
+        while True:
+            read_bytes = file.read(BUFSIZE)
+            if not read_bytes:
+                # Cuando ya no hay más información para leer, se corta el bucle
+                break     
+            
+            file_string += str(read_bytes, encoding='latin-1')
+
+        respuesta += file_string
+
+        enviar_mensaje(cs, respuesta)
 
 
 
