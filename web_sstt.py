@@ -20,6 +20,9 @@ MAX_ACCESOS = 10
 HTTP_GET_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n"
 HTTP_GET_REGEX = re.compile(HTTP_GET_REGEX_TXT)
 
+REMOVE_PARAMS_TXT = r"\?.+?$"
+REMOVE_PARAMS = re.compile(REMOVE_PARAMS_TXT)
+
 HTTP_405_CONTENT = "<html><body><h1>405 Method Not Allowed</h1></body></html>"
 HTTP_404_CONTENT = "<html><body><h1>404 Not Found</h1></body></html>"
 HTTP_403_CONTENT = "<html><body><h1>403 Forbidden</h1></body></html>"
@@ -38,7 +41,6 @@ logger = logging.getLogger()
 # Configuracion de respuestas HTTP
 server = "Custom Server"
 connection = "Keep-Alive"
-content_type = "text/html; charset=ISO-8859-1"
 
 
 def enviar_mensaje(cs, data):
@@ -93,7 +95,7 @@ def process_cookies(headers,  cs):
         # 3. Si no se encuentra cookie_counter , se devuelve 1
         return 1
 
-def format_message(http_version, date, status_code, status_msg, additional_headers, content_length, content):
+def format_message(http_version, date, status_code, status_msg, additional_headers, content_length):
     respuesta = ""
     respuesta += "HTTP/"+http_version+" "+ status_code+" "+ status_msg+"\r\n"
     respuesta += "Date: "+date+"\r\n"
@@ -102,9 +104,7 @@ def format_message(http_version, date, status_code, status_msg, additional_heade
     for header in additional_headers:
         respuesta += header
     respuesta += "Content-Length: "+str(content_length)+"\r\n"
-    respuesta += "Content-Type: "+content_type+"\r\n"
     respuesta += "\r\n"
-    respuesta += content
     return respuesta
 
 
@@ -119,8 +119,6 @@ def process_web_request(cs, webroot):
         # sin recibir ningún mensaje o hay datos. Se utiliza select.select
         
         [r,w,x] = select.select([cs], [], [], TIMEOUT_CONNECTION)
-
-
         if len(r) == 0 and len(w) == 0 and len(x) == 0:
             # Si es por timeout, se cierra el socket tras el período de persistencia.
             # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
@@ -130,7 +128,6 @@ def process_web_request(cs, webroot):
 
         else:
             # Si no es por timeout y hay datos en el socket cs.
-
             # Leer los datos con recv.
             recv_data = cs.recv(BUFSIZE).decode()
 
@@ -143,13 +140,12 @@ def process_web_request(cs, webroot):
                 date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
                 # Mapa de cabeceras
+                # Devuelve una lista con los atributos de las cabeceras.
                 headers = {}
                 for line in recv_data.splitlines()[1:]:
                     if line != "":
                         split = line.split(":", 1)
                         headers[split[0]] = split[1]
-
-                # Devuelve una lista con los atributos de las cabeceras.
 
                 # Comprobar si la versión de HTTP es 1.1
                 if http_version != "1.1":
@@ -157,13 +153,13 @@ def process_web_request(cs, webroot):
 
                 # Comprobar si es un método GET o POST. Si no devolver un error Error 405 "Method Not Allowed".
                 if method != "GET" and method != "POST":
-                    respuesta = format_message(http_version, date, "405", "Method Not Allowed", [], len(HTTP_405_CONTENT), HTTP_405_CONTENT)
+                    respuesta = format_message(http_version, date, "405", "Method Not Allowed", [], len(HTTP_405_CONTENT))
+                    respuesta += HTTP_405_CONTENT;
                     enviar_mensaje(cs, respuesta)
                     break
 
                 # Leer URL y eliminar parámetros si los hubiera
-                # if data_match["HOST"]:
-                #     return
+                resource = REMOVE_PARAMS.sub("", resource)
                 
                 # Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
                 resource_path = webroot
@@ -175,48 +171,52 @@ def process_web_request(cs, webroot):
                 
                 # Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
                 if not os.path.isfile(resource_path):
-                    respuesta = format_message(http_version, date, "404", "Not found", [], len(HTTP_404_CONTENT), HTTP_404_CONTENT)
+                    respuesta = format_message(http_version, date, "404", "Not found", [], len(HTTP_404_CONTENT))
+                    respuesta += HTTP_404_CONTENT;
                     enviar_mensaje(cs, respuesta)
                     break
                 
                 # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
-                # for header in headers:
-                #     print(header + " -> " + headers[header])
+                for header in headers:
+                    print("\t" + header + ": " + headers[header])
 
                 # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
                 # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
-                set_cookie_counter = ""
+                set_cookie_counter_header = ""
                 if resource_path == webroot + "/index.html":
                     cookie_counter = process_cookies(headers, cs)
                     if cookie_counter == MAX_ACCESOS:
-                        respuesta = format_message(http_version, date, "403", "Forbidden", [], len(HTTP_403_CONTENT), HTTP_403_CONTENT)
+                        respuesta = format_message(http_version, date, "403", "Forbidden", [], len(HTTP_403_CONTENT))
+                        respuesta += HTTP_403_CONTENT;
                         enviar_mensaje(cs, respuesta)
                         break
-                    set_cookie_counter = "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
+                    set_cookie_counter_header = "Set-Cookie: cookie_counter="+str(cookie_counter)+"\r\n"
                 else:
-                    set_cookie_counter = "Set-Cookie: " + headers["Cookie"]+"\r\n"
-                
-                
-
-                # print("cookie_counter = " + str(cookie_counter))
+                    set_cookie_counter_header = "Set-Cookie: " + headers["Cookie"]+"\r\n"
                 
                 # Obtener el tamaño del recurso en bytes.
-                
+                file_bytes_len = os.stat(resource_path).st_size
+
+
                 # Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+                file_name, file_extension = os.path.splitext(resource_path)
+                content_type = ""
+                if file_extension == "html":
+                    content_type = "text/html; charset=ISO-8859-1"
+                elif file_extension == "jpg":
+                    content_type == "image/jpeg"
+                content_type_header = "Content-Type: "+content_type+"\r\n";
 
                 # Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
                 # las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
                 # Content-Length y Content-Type.
-
-
-                
+                respuesta = format_message(http_version, date, "200", "OK", [set_cookie_counter_header, content_type_header], file_bytes_len)
 
                 # Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
                 # Se abre el fichero en modo lectura y modo binario
                 file = open(resource_path, "rb")
 
                 file_string = ""
-                file_bytes_len = 0
                 while True:
                     read_bytes = file.read(BUFSIZE)
                     if not read_bytes:
@@ -224,9 +224,8 @@ def process_web_request(cs, webroot):
                         break     
                     
                     file_string += str(read_bytes, encoding='latin-1')
-                    file_bytes_len += len(read_bytes)
 
-                respuesta = format_message(http_version, date, "200", "OK", [set_cookie_counter], file_bytes_len, file_string)
+                respuesta += file_string
 
                 enviar_mensaje(cs, respuesta)
             else:
