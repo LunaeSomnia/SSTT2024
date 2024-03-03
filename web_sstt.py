@@ -159,10 +159,10 @@ def process_web_request(cs, webroot):
             enviar_mensaje(cs, respuesta)
             return
 
-        method = data_match["METHOD"]
-        resource = data_match["RESOURCE"]
-        http_version = data_match["HTTPVER"]
-        content = data_match["CONTENT"]
+        method = data_match.group("METHOD")
+        resource = data_match.group("RESOURCE")
+        http_version = data_match.group("HTTPVER")
+        content = data_match.group("CONTENT")
 
         # Mapa de cabeceras
         # Devuelve una lista con los atributos de las cabeceras.
