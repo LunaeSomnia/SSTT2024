@@ -15,7 +15,7 @@ import logging      # Para imprimir logs
 import urllib.parse
 
 BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
-TIMEOUT_CONNECTION = 24     # Timout para la conexión persistente
+TIMEOUT_CONNECTION = 5     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
 HTTP_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n(?P<CONTENT>(.+\r\n)*.+)?$"
@@ -149,14 +149,20 @@ def process_web_request(cs, webroot):
             # Si es por timeout, se cierra el socket tras el período de persistencia.
             # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
             cerrar_conexion(cs)
-            # TODO: Falta ERROR
             break
 
         # Si no es por timeout y hay datos en el socket cs.
         # Leer los datos con recv.
         recv_data = cs.recv(BUFSIZE).decode()
+
+        # Fix para no acceder a contenidos invalidos
+        if len(recv_data) == 0:
+            print("DBG: Cerramos por 0 bytes")
+            cerrar_conexion(cs)
+            break
+
         print("")
-        print(" RECEIVED " + str(len(recv_data)) + "bytes <<<<<<<<<<<<<<<<<<<<<<<< ")
+        print(" RECEIVED " + str(len(recv_data)) + "<<<<<<<<<<<<<<<<<<<<<<<< ")
         print("")
         print(recv_data)
 
