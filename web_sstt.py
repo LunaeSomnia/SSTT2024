@@ -15,7 +15,7 @@ import logging      # Para imprimir logs
 import urllib.parse
 
 BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
-TIMEOUT_CONNECTION = 5     # Timout para la conexión persistente
+TIMEOUT_CONNECTION = 24     # Timout para la conexión persistente
 MAX_ACCESOS = 10
 
 HTTP_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n(?P<CONTENT>(.+\r\n)*.+)?$"
