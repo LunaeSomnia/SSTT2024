@@ -52,6 +52,10 @@ def enviar_mensaje(cs, data):
     """
 
     sent = cs.send(bytes(data, encoding='latin-1'))
+    print("")
+    print(" SENT >>>>>>>>>>>>>>>>>>>>>>>>> ")
+    print("")
+    print(data)
     # print("DEBUG: Sent " + str(sent) + " bytes")
 
 
@@ -151,6 +155,10 @@ def process_web_request(cs, webroot):
         # Si no es por timeout y hay datos en el socket cs.
         # Leer los datos con recv.
         recv_data = cs.recv(BUFSIZE).decode()
+        print("")
+        print(" RECEIVED <<<<<<<<<<<<<<<<<<<<<<<< ")
+        print("")
+        print(recv_data)
 
         # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
         data_match = HTTP_REGEX.search(recv_data)
@@ -202,8 +210,8 @@ def process_web_request(cs, webroot):
                 break
             
             # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
-            for header in headers:
-                print("\t" + header + ": " + headers[header])
+            # for header in headers:
+            #     print("\t" + header + ": " + headers[header])
 
             # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
             # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
