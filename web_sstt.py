@@ -156,7 +156,7 @@ def process_web_request(cs, webroot):
         # Leer los datos con recv.
         recv_data = cs.recv(BUFSIZE).decode()
         print("")
-        print(" RECEIVED <<<<<<<<<<<<<<<<<<<<<<<< ")
+        print(" RECEIVED " + len(recv_data) + "bytes <<<<<<<<<<<<<<<<<<<<<<<< ")
         print("")
         print(recv_data)
 
