@@ -28,7 +28,7 @@ COOKIE_MAX_AGE = 120
 
 COOKIE_COUNTER_HDR = "cookie_counter_6206"
 
-VALID_USERS = ["monteiros@ssttenyoyers6206.org", "donjuandedios@ssttenyoyers6206.org"]
+VALID_USERS = ["juandios.melgarejof@um.es", "adrian.m.t@um.es"]
 
 # Configuracion de respuestas HTTP
 SERVER_NAME = "web.ssttenyoyers6206.org"
