@@ -28,7 +28,7 @@ COOKIE_MAX_AGE = 120
 
 COOKIE_COUNTER_HDR = "cookie_counter_6206"
 
-VALID_USERS = ["monteiros@ssttenyoyers6206.org", "donjuandedios@ssttenyoyers6206.org"]
+VALID_USERS = ["juandios.melgarejof@um.es", "adrian.m.t@um.es"]
 
 # Configuracion de respuestas HTTP
 SERVER_NAME = "web.ssttenyoyers6206.org"
@@ -52,10 +52,6 @@ def enviar_mensaje(cs, data):
     """
 
     sent = cs.send(bytes(data, encoding='latin-1'))
-    print("")
-    print(" SENT >>>>>>>>>>>>>>>>>>>>>>>>> ")
-    print("")
-    print(data)
     # print("DEBUG: Sent " + str(sent) + " bytes")
 
 
@@ -90,7 +86,6 @@ def process_cookies(headers,  cs):
         elif cookies_str != '':
             c = cookies_str.split('=')
             cookies[c[0]] = c[1]
-
         
     # 2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
     if COOKIE_COUNTER_HDR in cookies:
@@ -149,22 +144,12 @@ def process_web_request(cs, webroot):
             # Si es por timeout, se cierra el socket tras el período de persistencia.
             # NOTA: Si hay algún error, enviar una respuesta de error con una pequeña página HTML que informe del error.
             cerrar_conexion(cs)
+            # TODO: Falta ERROR
             break
 
         # Si no es por timeout y hay datos en el socket cs.
         # Leer los datos con recv.
         recv_data = cs.recv(BUFSIZE).decode()
-
-        # Fix para no acceder a contenidos invalidos
-        if len(recv_data) == 0:
-            print("DBG: Cerramos por 0 bytes")
-            cerrar_conexion(cs)
-            break
-
-        print("")
-        print(" RECEIVED " + str(len(recv_data)) + "<<<<<<<<<<<<<<<<<<<<<<<< ")
-        print("")
-        print(recv_data)
 
         # Analizar que la línea de solicitud y comprobar está bien formateada según HTTP 1.1
         data_match = HTTP_REGEX.search(recv_data)
@@ -173,10 +158,10 @@ def process_web_request(cs, webroot):
             enviar_mensaje(cs, respuesta)
             return
 
-        method = data_match.group("METHOD")
-        resource = data_match.group("RESOURCE")
-        http_version = data_match.group("HTTPVER")
-        content = data_match.group("CONTENT")
+        method = data_match["METHOD"]
+        resource = data_match["RESOURCE"]
+        http_version = data_match["HTTPVER"]
+        content = data_match["CONTENT"]
 
         # Mapa de cabeceras
         # Devuelve una lista con los atributos de las cabeceras.
@@ -216,8 +201,8 @@ def process_web_request(cs, webroot):
                 break
             
             # Analizar las cabeceras. Imprimir cada cabecera y su valor. 
-            # for header in headers:
-            #     print("\t" + header + ": " + headers[header])
+            for header in headers:
+                print("\t" + header + ": " + headers[header])
 
             # Si la cabecera es Cookie comprobar el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
             # Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
@@ -347,8 +332,6 @@ def main():
                 else:
                     # Padre - Si es el proceso padre cerrar el socket que gestiona el hijo.
                     conn.close()
-
-        print("Done!")
 
     except KeyboardInterrupt:
         True
