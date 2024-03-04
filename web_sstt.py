@@ -16,6 +16,7 @@ import urllib.parse
 
 BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 24     # Timout para la conexión persistente
+SERVER_TIMEOUT_DELAY = 1    # Delay para que el servidor termine la conexcion por timeout antes que el cliente
 MAX_ACCESOS = 10
 
 HTTP_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n(?P<CONTENT>(.+\r\n)*.+)?$"
@@ -143,7 +144,7 @@ def process_web_request(cs, webroot):
         # Se comprueba si hay que cerrar la conexión por exceder TIMEOUT_CONNECTION segundos
         # sin recibir ningún mensaje o hay datos. Se utiliza select.select
         
-        [r,w,x] = select.select([cs], [], [], TIMEOUT_CONNECTION)
+        [r,w,x] = select.select([cs], [], [], TIMEOUT_CONNECTION - SERVER_TIMEOUT_DELAY)
         if len(r) == 0 and len(w) == 0 and len(x) == 0:
             print("DBG: Timeout")
             # Si es por timeout, se cierra el socket tras el período de persistencia.
