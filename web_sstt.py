@@ -191,7 +191,6 @@ def process_web_request(cs, webroot):
         if "Host" not in headers:
             respuesta = format_error_message(http_version, date, "405", "Method Not Allowed")
             enviar_mensaje(cs, respuesta)
-            # Mal asunto compa
             break
 
         # Comprobar si la versión de HTTP es 1.1
