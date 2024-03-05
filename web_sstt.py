@@ -16,7 +16,7 @@ import urllib.parse
 
 BUFSIZE = 8192              # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 24     # Timout para la conexión persistente
-SERVER_TIMEOUT_DELAY = 1    # Delay para que el servidor termine la conexcion por timeout antes que el cliente
+SERVER_TIMEOUT_DELAY = 2    # Delay para que el servidor termine la conexcion por timeout antes que el cliente
 MAX_ACCESOS = 10
 
 HTTP_REGEX_TXT = r"(?P<METHOD>.+) (?P<RESOURCE>.+) HTTP\/(?P<HTTPVER>.+)\r\n(.+?:.+?\r\n)*\r\n(?P<CONTENT>(.+\r\n)*.+)?$"
