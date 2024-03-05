@@ -55,7 +55,9 @@ def enviar_mensaje(cs, data):
     print("")
     print(" SENT >>>>>>>>>>>>>>>>>>>>>>>>> ")
     print("")
-    print(data)
+    split = data.split("\r\n\r\n")
+    print(split[0])
+    print("<< content omitted >>")
     # print("DEBUG: Sent " + str(sent) + " bytes")
 
 
